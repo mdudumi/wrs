@@ -99,7 +99,7 @@ export async function buildWeeklyReport(period: ReportingPeriodRecord, entries: 
 }
 
 function buildModuleSnapshot(module: ModuleDefinition, entries: DepartmentEntryRecord[]): ModuleSnapshot {
-  const entry = entries.find((item) => item.department_id === module.id);
+  const entry = resolveModuleEntry(module, entries);
   const draft = draftFromPayload(module, entry?.payload).draft;
 
   const sections = module.sections
@@ -119,6 +119,15 @@ function buildModuleSnapshot(module: ModuleDefinition, entries: DepartmentEntryR
     sections,
     hasContent: sections.length > 0
   };
+}
+
+function resolveModuleEntry(module: ModuleDefinition, entries: DepartmentEntryRecord[]) {
+  const directEntry = entries.find((item) => item.department_id === module.id);
+  if (directEntry || module.id !== "eor") {
+    return directEntry;
+  }
+
+  return entries.find((item) => item.department_id === "reservoir");
 }
 
 function renderModule(snapshot: ModuleSnapshot, index: number) {

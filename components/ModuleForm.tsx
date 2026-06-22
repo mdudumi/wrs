@@ -81,6 +81,19 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     [downWellImpactTypeNames, rigNames, wellJobTypeNames, wellNames]
   );
 
+  async function getEntryForCurrentModule(targetPeriodId: string) {
+    const directEntry = await getDepartmentEntry(targetPeriodId, module.id);
+    if (directEntry || module.id !== "eor") {
+      return { entry: directEntry, fromLegacyReservoir: false };
+    }
+
+    const legacyReservoirEntry = await getDepartmentEntry(targetPeriodId, "reservoir");
+    return {
+      entry: legacyReservoirEntry,
+      fromLegacyReservoir: Boolean(legacyReservoirEntry)
+    };
+  }
+
   useEffect(() => {
     const selected = getSelectedPeriod();
     setPeriodId(selected);
@@ -161,7 +174,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     let alive = true;
     setLoading(true);
     setStatus("Loading entry");
-    getDepartmentEntry(periodId, module.id).then(async (entry) => {
+    getEntryForCurrentModule(periodId).then(async ({ entry, fromLegacyReservoir }) => {
       if (!alive) return;
       const hydrated = draftFromPayload(module, entry?.payload);
       let normalizedDraft = normalizeDraftForDisplay(module, hydrated.draft);
@@ -171,10 +184,12 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       setDraft(normalizedDraft);
       setImportedPayload(hydrated.importedPayload);
       setExpandedSections(defaultExpandedSections(module, normalizedDraft));
-      setHasEntry(Boolean(entry));
+      setHasEntry(Boolean(entry) && !fromLegacyReservoir);
       setStatus(
         entry
-          ? `Loaded ${entry.status} entry${carryForward.fromPeriodLabel ? ` · Last Week copied from ${carryForward.fromPeriodLabel}` : ""}`
+          ? fromLegacyReservoir
+            ? `Loaded legacy reservoir data for EOR${carryForward.fromPeriodLabel ? ` · Last Week copied from ${carryForward.fromPeriodLabel}` : ""}`
+            : `Loaded ${entry.status} entry${carryForward.fromPeriodLabel ? ` · Last Week copied from ${carryForward.fromPeriodLabel}` : ""}`
           : carryForward.fromPeriodLabel
             ? `No saved entry yet · Last Week copied from ${carryForward.fromPeriodLabel}`
             : "No saved entry yet"
@@ -261,6 +276,20 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
         setStatus("Current week entry loaded for editing");
         return;
       }
+
+      if (module.id === "eor") {
+        const legacyReservoirEntry = await getDepartmentEntry(periodId, "reservoir");
+        if (legacyReservoirEntry) {
+          const hydrated = draftFromPayload(module, legacyReservoirEntry.payload);
+          const normalizedDraft = normalizeDraftForDisplay(module, hydrated.draft);
+          setDraft(normalizedDraft);
+          setImportedPayload(hydrated.importedPayload);
+          setExpandedSections(defaultExpandedSections(module, normalizedDraft));
+          setHasEntry(false);
+          setStatus("Loaded existing reservoir data into EOR. Save draft or submit to create the dedicated EOR entry.");
+          return;
+        }
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to check the current week entry");
       return;
@@ -287,7 +316,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       return;
     }
     try {
-      const entry = await getDepartmentEntry(sourcePeriodId, module.id);
+      const { entry, fromLegacyReservoir } = await getEntryForCurrentModule(sourcePeriodId);
       if (!entry) {
         setStatus("No entry exists in that source week");
         return;
@@ -296,7 +325,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       setCopiedDraft(cloneDraft(hydrated.draft));
       setCopiedPayload(hydrated.importedPayload);
       const label = periods.find((item) => item.id === sourcePeriodId)?.label ?? "selected week";
-      setStatus(`Copied ${module.name} data from ${label}`);
+      setStatus(fromLegacyReservoir ? `Copied legacy reservoir data into EOR from ${label}` : `Copied ${module.name} data from ${label}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to copy the selected week");
     }

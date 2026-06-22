@@ -109,10 +109,10 @@ export const modules: ModuleDefinition[] = [
   },
   {
     id: "reservoir",
-    name: "Development & Reservoir Engineering",
+    name: "Reservoir",
     shortName: "Reservoir",
-    reportSection: "DEVELOPMENT & RESERVOIR ENGINEERING",
-    summary: "Activities, production against budget, EOR performance, polymer notes, and conversions.",
+    reportSection: "RESERVOIR",
+    summary: "Current activities, production against budget, and EOR production performance.",
     sections: [
       { id: "currentActivities", name: "Current Activities", kind: "table", fields: idText },
       { id: "productionBudget", name: "Production Against Budget", kind: "metrics", fields: [
@@ -130,7 +130,16 @@ export const modules: ModuleDefinition[] = [
         { id: "thisWeekOil", label: "This Week Oil Production m3/d", type: "number" },
         { id: "variance", label: "Variance +/- m3/d", type: "number", calculated: "thisWeekOil-lastWeekOil" }
       ] },
-      { id: "eorPerformance", name: "EOR Performance", kind: "table", fields: idText },
+      { id: "eorPerformance", name: "EOR Performance", kind: "table", fields: idText }
+    ]
+  },
+  {
+    id: "eor",
+    name: "EOR",
+    shortName: "EOR",
+    reportSection: "EOR",
+    summary: "Polymer, other EOR notes, and new conversions.",
+    sections: [
       { id: "polymer", name: "Polymer", kind: "table", fields: idText },
       { id: "other", name: "Other", kind: "table", fields: idText },
       { id: "newConversions", name: "New Conversions", kind: "table", fields: [

@@ -155,7 +155,11 @@ export default function AdminPage() {
   const period = periods.find((item) => item.id === periodId) ?? periods[0];
   const rows = modules.map((module) => ({
     module,
-    saved: statuses.find((entry) => entry.department_id === module.id) ?? null
+    saved: statuses.find((entry) => entry.department_id === module.id)
+      ?? (module.id === "eor" ? statuses.find((entry) => entry.department_id === "reservoir") ?? null : null),
+    usingLegacyReservoir: module.id === "eor"
+      && !statuses.find((entry) => entry.department_id === module.id)
+      && Boolean(statuses.find((entry) => entry.department_id === "reservoir"))
   }));
   const periodLabel = period ? `${period.label} · ${period.status}` : "Loading reporting period";
   const reportHref = period ? `/api/report/${period.id}` : "#";
@@ -211,11 +215,11 @@ export default function AdminPage() {
               <tr><th>Department</th><th>Sections</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {rows.map(({ module, saved }) => (
+              {rows.map(({ module, saved, usingLegacyReservoir }) => (
                 <tr key={module.id}>
                   <td>{module.name}</td>
                   <td>{module.sections.length}</td>
-                  <td><span className="pill">{saved ? saved.status : "Not started"}</span></td>
+                  <td><span className="pill">{saved ? `${saved.status}${usingLegacyReservoir ? " · legacy reservoir" : ""}` : "Not started"}</span></td>
                   <td>
                     <a className="button ghost" href={`/modules/${module.id}`}><Eye size={16} /> Open</a>
                   </td>

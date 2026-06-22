@@ -28,7 +28,9 @@ const SECTION_TITLE_ALIASES: Record<string, Record<string, string[]>> = {
     currentActivities: ["CURRENT ACTIVITIES"],
     productionBudget: ["PRODUCTION AGAINST BUDGET"],
     eorCycle: ["EOR PERFORMANCE (SATURDAY"],
-    eorPerformance: ["EOR PERFORMANCE"],
+    eorPerformance: ["EOR PERFORMANCE"]
+  },
+  eor: {
     polymer: ["POLYMER"],
     other: ["OTHER"],
     newConversions: ["NEW CONVERSIONS"]
