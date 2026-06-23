@@ -176,6 +176,25 @@ p { color: var(--muted); line-height: 1.55; }
   background: var(--panel-2);
 }
 
+.module-card.submitted {
+  border-color: color-mix(in srgb, #63c37a 52%, var(--line));
+  background: color-mix(in srgb, var(--panel) 82%, #173a24);
+}
+
+.module-card.submitted:hover {
+  border-color: color-mix(in srgb, #7fe197 68%, var(--line));
+  background: color-mix(in srgb, var(--panel-2) 72%, #1f4d2f);
+}
+
+.module-card.submitted h2,
+.module-card.submitted .metric svg {
+  color: #dcfce7;
+}
+
+.module-card.submitted p {
+  color: color-mix(in srgb, var(--ink) 82%, #dcfce7);
+}
+
 .module-meta {
   display: flex;
   flex-wrap: wrap;
@@ -188,6 +207,12 @@ p { color: var(--muted); line-height: 1.55; }
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 5px 8px;
+}
+
+.module-card.submitted .module-meta span {
+  border-color: rgba(134, 239, 172, 0.24);
+  background: rgba(34, 94, 52, 0.28);
+  color: #dcfce7;
 }
 
 .metric {

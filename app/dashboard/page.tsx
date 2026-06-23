@@ -6,8 +6,10 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuthUser } from "@/components/AuthGate";
 import { visibleModulesForUser } from "@/lib/access";
+import { getSelectedPeriod } from "@/lib/local-store";
 import { modules } from "@/lib/modules";
-import { listReportingPeriods } from "@/lib/reporting-data";
+import { listDepartmentEntryStatuses, listReportingPeriods } from "@/lib/reporting-data";
+import type { DepartmentEntryRecord } from "@/lib/types";
 
 export default function DashboardPage() {
   return (
@@ -22,6 +24,8 @@ function DashboardContent() {
   const visibleModules = visibleModulesForUser(user, modules);
   const isAdmin = user?.role === "admin";
   const [periodCount, setPeriodCount] = useState(0);
+  const [selectedPeriodId, setSelectedPeriodId] = useState("");
+  const [entryStatuses, setEntryStatuses] = useState<Array<Pick<DepartmentEntryRecord, "department_id" | "status" | "updated_at">>>([]);
 
   useEffect(() => {
     let alive = true;
@@ -34,6 +38,42 @@ function DashboardContent() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncPeriod = (event?: Event) => {
+      const nextPeriodId = event && "detail" in event ? `${(event as CustomEvent<string>).detail ?? ""}` : getSelectedPeriod();
+      setSelectedPeriodId(nextPeriodId);
+    };
+
+    syncPeriod();
+    window.addEventListener("period-change", syncPeriod);
+    return () => {
+      window.removeEventListener("period-change", syncPeriod);
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!selectedPeriodId) {
+      setEntryStatuses([]);
+      return () => {
+        alive = false;
+      };
+    }
+
+    listDepartmentEntryStatuses(selectedPeriodId).then((items) => {
+      if (alive) setEntryStatuses(items);
+    }).catch(() => {
+      if (alive) setEntryStatuses([]);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [selectedPeriodId]);
 
   return (
     <>
@@ -56,22 +96,35 @@ function DashboardContent() {
         <span className="pill">Drafts, prior-week copy, submission</span>
       </div>
       <div className="grid cards">
-        {visibleModules.map((module) => (
-          <Link className="module-card" href={`/modules/${module.id}`} key={module.id}>
-            <div className="metric">
-              <div>
-                <h2>{module.name}</h2>
+        {visibleModules.map((module) => {
+          const saved = entryStatuses.find((entry) => entry.department_id === module.id);
+          const isSubmitted = saved?.status === "submitted" || saved?.status === "approved";
+
+          return (
+            <Link className={`module-card${isSubmitted ? " submitted" : ""}`} href={`/modules/${module.id}`} key={module.id}>
+              <div className="metric">
+                <div>
+                  <h2>{module.name}</h2>
+                </div>
+                <ArrowRight size={18} />
               </div>
-              <ArrowRight size={18} />
-            </div>
-            <p>{module.summary}</p>
-            <div className="module-meta">
-              <span>{module.sections.length} sections</span>
-              <span>Draft + submit</span>
-            </div>
-          </Link>
-        ))}
+              <p>{module.summary}</p>
+              <div className="module-meta">
+                <span>{module.sections.length} sections</span>
+                <span>{statusLabel(saved?.status)}</span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </>
   );
+}
+
+function statusLabel(status?: DepartmentEntryRecord["status"]) {
+  if (status === "approved") return "Approved";
+  if (status === "submitted") return "Submitted";
+  if (status === "draft") return "Draft saved";
+  if (status === "reopened") return "Reopened";
+  return "Not started";
 }

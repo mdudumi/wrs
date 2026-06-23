@@ -430,10 +430,22 @@ function EditableTable({ section, rows, optionSets, onChange, onDelete }: { sect
   const visibleFields = getVisibleFieldsForSection(section);
   const columnWidths = getColumnWidths(section, rows, visibleFields);
   const tableMinWidth = getTableMinWidth(columnWidths);
+  const searchableFieldOptionSets = Object.fromEntries(
+    visibleFields
+      .filter((field) => shouldUseSearchableOptions(field, optionSets))
+      .map((field) => [field.id, field.options ?? optionSets[field.optionSet ?? ""] ?? []])
+  ) as Record<string, string[]>;
 
   return (
     <>
       <div className="table-wrap">
+      {Object.entries(searchableFieldOptionSets).map(([fieldId, options]) => (
+        <datalist id={searchableOptionListId(section.id, fieldId)} key={`${section.id}-${fieldId}-datalist`}>
+          {options.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+      ))}
       <table className="data-table responsive-data-table" style={{ width: `max(100%, ${tableMinWidth}px)` }}>
         <colgroup>
           <col className="row-num-col" />
@@ -468,6 +480,15 @@ function EditableTable({ section, rows, optionSets, onChange, onDelete }: { sect
                       value={row[field.id] ?? ""}
                       onChange={(value) => onChange(rowIndex, field.id, value)}
                       className="compact-wrap-textarea"
+                    />
+                  ) : shouldUseSearchableOptions(field, optionSets) ? (
+                    <input
+                      type="text"
+                      list={searchableOptionListId(section.id, field.id)}
+                      value={row[field.id] ?? ""}
+                      onChange={(e) => onChange(rowIndex, field.id, e.target.value)}
+                      placeholder="Search or type..."
+                      autoComplete="off"
                     />
                   ) : field.type === "select" ? (
                     <select
@@ -580,6 +601,23 @@ function shouldUseWrappedTextArea(section: SectionDefinition, field: { id: strin
     (section.id === "projects" && (field.id === "project" || field.id === "subproject")) ||
     (section.id === "serviceTypes" && field.id === "item")
   );
+}
+
+function shouldUseSearchableOptions(field: { type?: string; optionSet?: string; options?: string[] }, optionSets: Record<string, string[]>) {
+  if (field.type !== "select") {
+    return false;
+  }
+
+  if (field.optionSet === "wells") {
+    return true;
+  }
+
+  const options = field.options ?? optionSets[field.optionSet ?? ""] ?? [];
+  return options.length > 50;
+}
+
+function searchableOptionListId(sectionId: string, fieldId: string) {
+  return `${sectionId}-${fieldId}-options`;
 }
 
 function SectionSummary({ section, rows }: { section: SectionDefinition; rows: Row[] }) {
