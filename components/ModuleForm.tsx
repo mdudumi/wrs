@@ -70,6 +70,15 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     [wells]
   );
 
+  const wellReferenceByName = useMemo(
+    () => Object.fromEntries(
+      wells
+        .filter((item) => item.well_name)
+        .map((item) => [normalizeReferenceKey(item.well_name), item])
+    ) as Record<string, WellReferenceRecord>,
+    [wells]
+  );
+
   const optionSets = useMemo<Record<string, string[]>>(
     () => ({
       ...staticOptionSets,
@@ -166,8 +175,8 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       return;
     }
 
-    setDraft((current) => applyLinkedLeases(module, current, wellLeaseByName));
-  }, [module, wellLeaseByName]);
+    setDraft((current) => applyLinkedLeases(module, current, wellLeaseByName, wellReferenceByName));
+  }, [module, wellLeaseByName, wellReferenceByName]);
 
   useEffect(() => {
     if (!periodId) return;
@@ -216,9 +225,10 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       const nextRow = { ...rows[rowIndex], [fieldId]: value };
 
       if (fieldId === "well" && section.fields.some((field) => field.id === "lease")) {
-        const linkedLease = wellLeaseByName[value];
-        if (linkedLease !== undefined) {
-          nextRow.lease = linkedLease;
+        const matchedWell = findWellReference(value, wellLeaseByName, wellReferenceByName);
+        if (matchedWell) {
+          nextRow.well = matchedWell.well_name;
+          nextRow.lease = matchedWell.lease ?? "";
         } else if (!value) {
           nextRow.lease = "";
         }
@@ -916,7 +926,12 @@ function formatCalculatedNumber(value: number) {
   return value.toFixed(2).replace(/\.?0+$/, "");
 }
 
-function applyLinkedLeases(module: ModuleDefinition, draft: DraftData, wellLeaseByName: Record<string, string>) {
+function applyLinkedLeases(
+  module: ModuleDefinition,
+  draft: DraftData,
+  wellLeaseByName: Record<string, string>,
+  wellReferenceByName: Record<string, WellReferenceRecord>
+) {
   let changed = false;
 
   const nextDraft = Object.fromEntries(module.sections.map((section) => {
@@ -929,13 +944,14 @@ function applyLinkedLeases(module: ModuleDefinition, draft: DraftData, wellLease
         return row;
       }
 
-      const linkedLease = wellLeaseByName[row.well ?? ""];
-      if (linkedLease === undefined || linkedLease === "") {
+      const matchedWell = findWellReference(row.well ?? "", wellLeaseByName, wellReferenceByName);
+      const linkedLease = matchedWell?.lease ?? "";
+      if (linkedLease === "") {
         return row;
       }
 
       changed = true;
-      return { ...row, lease: linkedLease };
+      return { ...row, well: matchedWell?.well_name ?? row.well, lease: linkedLease };
     });
 
     return [section.id, nextRows];
@@ -944,10 +960,36 @@ function applyLinkedLeases(module: ModuleDefinition, draft: DraftData, wellLease
   return changed ? nextDraft : draft;
 }
 
+function findWellReference(
+  value: string,
+  wellLeaseByName: Record<string, string>,
+  wellReferenceByName: Record<string, WellReferenceRecord>
+) {
+  if (!value) {
+    return null;
+  }
+
+  const directLease = wellLeaseByName[value];
+  if (directLease !== undefined) {
+    return {
+      id: "",
+      well_name: value,
+      lease: directLease,
+      active: true
+    } satisfies WellReferenceRecord;
+  }
+
+  return wellReferenceByName[normalizeReferenceKey(value)] ?? null;
+}
+
+function normalizeReferenceKey(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 const FIELD_WIDTHS: Record<string, string> = {
   incidentCode: "192px",
   date: "164px",
-  well: "92px",
+  well: "180px",
   lease: "120px",
   type: "176px",
   startDate: "164px",
