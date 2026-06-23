@@ -430,22 +430,10 @@ function EditableTable({ section, rows, optionSets, onChange, onDelete }: { sect
   const visibleFields = getVisibleFieldsForSection(section);
   const columnWidths = getColumnWidths(section, rows, visibleFields);
   const tableMinWidth = getTableMinWidth(columnWidths);
-  const searchableFieldOptionSets = Object.fromEntries(
-    visibleFields
-      .filter((field) => shouldUseSearchableOptions(field, optionSets))
-      .map((field) => [field.id, field.options ?? optionSets[field.optionSet ?? ""] ?? []])
-  ) as Record<string, string[]>;
 
   return (
     <>
       <div className="table-wrap">
-      {Object.entries(searchableFieldOptionSets).map(([fieldId, options]) => (
-        <datalist id={searchableOptionListId(section.id, fieldId)} key={`${section.id}-${fieldId}-datalist`}>
-          {options.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-      ))}
       <table className="data-table responsive-data-table" style={{ width: `max(100%, ${tableMinWidth}px)` }}>
         <colgroup>
           <col className="row-num-col" />
@@ -482,13 +470,11 @@ function EditableTable({ section, rows, optionSets, onChange, onDelete }: { sect
                       className="compact-wrap-textarea"
                     />
                   ) : shouldUseSearchableOptions(field, optionSets) ? (
-                    <input
-                      type="text"
-                      list={searchableOptionListId(section.id, field.id)}
+                    <SearchableSelectInput
                       value={row[field.id] ?? ""}
-                      onChange={(e) => onChange(rowIndex, field.id, e.target.value)}
-                      placeholder="Search or type..."
-                      autoComplete="off"
+                      options={field.options ?? optionSets[field.optionSet ?? ""] ?? []}
+                      onChange={(value) => onChange(rowIndex, field.id, value)}
+                      placeholder="Search or select..."
                     />
                   ) : field.type === "select" ? (
                     <select
@@ -519,6 +505,98 @@ function EditableTable({ section, rows, optionSets, onChange, onDelete }: { sect
       </div>
       <SectionSummary section={section} rows={rows} />
     </>
+  );
+}
+
+function SearchableSelectInput({
+  value,
+  options,
+  onChange,
+  placeholder
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const normalizedValue = value.trim().toLowerCase();
+  const filteredOptions = useMemo(() => {
+    if (!normalizedValue) {
+      return options.slice(0, 200);
+    }
+
+    return options
+      .filter((option) => option.toLowerCase().includes(normalizedValue))
+      .slice(0, 200);
+  }, [normalizedValue, options]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
+  return (
+    <div className={`search-select${open ? " open" : ""}`} ref={wrapperRef}>
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "Enter") {
+            setOpen(true);
+          }
+          if (event.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="search-select-toggle"
+        aria-label="Toggle options"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <ChevronDown size={15} />
+      </button>
+      {open && (
+        <div className="search-select-menu">
+          {filteredOptions.length ? (
+            filteredOptions.map((option) => (
+              <button
+                type="button"
+                key={option}
+                className={`search-select-option${option === value ? " selected" : ""}`}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  onChange(option);
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </button>
+            ))
+          ) : (
+            <div className="search-select-empty">No matching options</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -614,10 +692,6 @@ function shouldUseSearchableOptions(field: { type?: string; optionSet?: string; 
 
   const options = field.options ?? optionSets[field.optionSet ?? ""] ?? [];
   return options.length > 50;
-}
-
-function searchableOptionListId(sectionId: string, fieldId: string) {
-  return `${sectionId}-${fieldId}-options`;
 }
 
 function SectionSummary({ section, rows }: { section: SectionDefinition; rows: Row[] }) {

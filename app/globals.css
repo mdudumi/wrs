@@ -316,6 +316,72 @@ td input, td select, td textarea {
   background: var(--field-bg-alt);
 }
 
+.search-select {
+  position: relative;
+}
+
+.search-select input {
+  padding-right: 36px;
+}
+
+.search-select-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.search-select.open .search-select-toggle {
+  color: var(--ink);
+}
+
+.search-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+.search-select-option,
+.search-select-empty {
+  width: 100%;
+  padding: 9px 11px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.search-select-option {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.search-select-option:hover,
+.search-select-option.selected {
+  background: var(--panel-3);
+}
+
+.search-select-empty {
+  color: var(--muted);
+}
+
 td input.calculated-input {
   font-weight: 700;
 }
