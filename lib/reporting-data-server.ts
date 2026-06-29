@@ -33,15 +33,32 @@ export async function listWellsServer() {
   const supabase = createSupabaseServiceClient();
   if (!supabase) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured on the server.");
 
-  const { data, error } = await supabase
-    .from("wells")
-    .select("id, well_name, lease, active")
-    .order("active", { ascending: false })
-    .order("well_name", { ascending: true })
-    .returns<WellReferenceRecord[]>();
+  const pageSize = 1000;
+  const rows: WellReferenceRecord[] = [];
+  let from = 0;
 
-  if (error) throw error;
-  return data ?? [];
+  while (true) {
+    const { data, error } = await supabase
+      .from("wells")
+      .select("id, well_name, lease, active")
+      .order("active", { ascending: false })
+      .order("well_name", { ascending: true })
+      .range(from, from + pageSize - 1)
+      .returns<WellReferenceRecord[]>();
+
+    if (error) throw error;
+
+    const page = data ?? [];
+    rows.push(...page);
+
+    if (page.length < pageSize) {
+      break;
+    }
+
+    from += pageSize;
+  }
+
+  return rows;
 }
 
 export async function listRigsServer() {
