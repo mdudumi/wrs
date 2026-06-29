@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, ClipboardPaste, Copy, FilePlus2, Plus, Save, Send, Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ImportedSourcePanel } from "@/components/ImportedSourcePanel";
 import { ProductionComparisonChart } from "@/components/ProductionComparisonChart";
@@ -530,22 +531,24 @@ function SearchableSelectInput({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const normalizedValue = value.trim().toLowerCase();
+  const [menuStyle, setMenuStyle] = useState({ top: 0, left: 0, width: 0 });
+  const normalizedValue = normalizeReferenceKey(value);
+  const normalizedSearch = normalizeReferenceKey(searchText);
   const filteredOptions = useMemo(() => {
-    if (!normalizedValue) {
-      return options.slice(0, 200);
+    if (!normalizedSearch) {
+      return options;
     }
 
-    return options
-      .filter((option) => option.toLowerCase().includes(normalizedValue))
-      .slice(0, 200);
-  }, [normalizedValue, options]);
+    return options.filter((option) => normalizeReferenceKey(option).includes(normalizedSearch));
+  }, [normalizedSearch, options]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       if (!wrapperRef.current?.contains(event.target as Node)) {
         setOpen(false);
+        setSearchText("");
       }
     };
 
@@ -555,23 +558,57 @@ function SearchableSelectInput({
     };
   }, []);
 
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const syncMenuPosition = () => {
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      setMenuStyle({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width
+      });
+    };
+
+    syncMenuPosition();
+    window.addEventListener("resize", syncMenuPosition);
+    document.addEventListener("scroll", syncMenuPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", syncMenuPosition);
+      document.removeEventListener("scroll", syncMenuPosition, true);
+    };
+  }, [open, options.length, value]);
+
   return (
     <div className={`search-select${open ? " open" : ""}`} ref={wrapperRef}>
       <input
         type="text"
-        value={value}
-        placeholder={placeholder}
+        value={open ? searchText : value}
+        placeholder={open && value ? value : placeholder}
         autoComplete="off"
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setSearchText("");
+          setOpen(true);
+        }}
         onChange={(event) => {
-          onChange(event.target.value);
+          setSearchText(event.target.value);
           setOpen(true);
         }}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "Enter") {
             setOpen(true);
+            if (event.key === "Enter" && filteredOptions[0]) {
+              event.preventDefault();
+              onChange(filteredOptions[0]);
+              setSearchText("");
+              setOpen(false);
+            }
           }
           if (event.key === "Escape") {
+            setSearchText("");
             setOpen(false);
           }
         }}
@@ -580,12 +617,24 @@ function SearchableSelectInput({
         type="button"
         className="search-select-toggle"
         aria-label="Toggle options"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          setSearchText("");
+          setOpen((current) => !current);
+        }}
       >
         <ChevronDown size={15} />
       </button>
-      {open && (
-        <div className="search-select-menu">
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          className="search-select-menu"
+          onWheel={(event) => event.stopPropagation()}
+          style={{
+            position: "fixed",
+            top: `${menuStyle.top}px`,
+            left: `${menuStyle.left}px`,
+            width: `${menuStyle.width}px`
+          }}
+        >
           {filteredOptions.length ? (
             filteredOptions.map((option) => (
               <button
@@ -595,6 +644,7 @@ function SearchableSelectInput({
                 onMouseDown={(event) => {
                   event.preventDefault();
                   onChange(option);
+                  setSearchText("");
                   setOpen(false);
                 }}
               >
@@ -604,7 +654,8 @@ function SearchableSelectInput({
           ) : (
             <div className="search-select-empty">No matching options</div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
