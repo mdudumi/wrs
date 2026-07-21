@@ -222,6 +222,7 @@ export default function AdminPage() {
                   <td><span className="pill">{saved ? `${saved.status}${usingLegacyReservoir ? " · legacy reservoir" : ""}` : "Not started"}</span></td>
                   <td>
                     <a className="button ghost" href={`/modules/${module.id}`}><Eye size={16} /> Open</a>
+                    {period ? <a className="button ghost" href={`/api/report/${period.id}/module/${module.id}?autoprint=1`} target="_blank" rel="noreferrer"><Download size={16} /> Export PDF</a> : null}
                   </td>
                 </tr>
               ))}

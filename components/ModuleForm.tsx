@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, ClipboardPaste, Copy, FilePlus2, Plus, Save, Send, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardPaste, Copy, Download, FilePlus2, Plus, Save, Send, Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ImportedSourcePanel } from "@/components/ImportedSourcePanel";
@@ -359,6 +359,15 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     setExpandedSections((current) => ({ ...current, [sectionId]: !current[sectionId] }));
   }
 
+  function exportModulePdf() {
+    if (!periodId) {
+      setStatus("Select a reporting week before exporting this module");
+      return;
+    }
+
+    window.open(`/api/report/${periodId}/module/${module.id}?autoprint=1`, "_blank", "noopener,noreferrer");
+  }
+
   const copyOptions = periods.filter((item) => item.id !== periodId);
 
   return (
@@ -369,6 +378,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
           <p>{hasEntry ? "Enter this week’s data, copy forward a prior week, save drafts, and submit to the admin review queue." : "Start a fresh entry for the selected reporting week, then save or submit it."}</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="button ghost" onClick={exportModulePdf}><Download size={16} /> Export PDF</button>
           <button className="button" onClick={createNewEntry}><FilePlus2 size={16} /> {hasEntry ? "Edit current week" : "New entry"}</button>
           <button className="button" onClick={() => save("draft", "Draft saved to Supabase")}><Save size={16} /> Save draft</button>
           <button className="button primary" onClick={() => save("submitted", "Submitted for admin review")}><Send size={16} /> Submit</button>
