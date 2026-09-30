@@ -706,6 +706,71 @@ td textarea {
   background: #15803d;
 }
 
+.submission-status-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.submission-status-callout.submitted,
+.submission-status-callout.approved {
+  border-color: rgba(134, 239, 172, 0.48);
+  background: rgba(22, 101, 52, 0.3);
+}
+
+.submission-status-callout.reopened {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(146, 64, 14, 0.2);
+}
+
+.submission-status-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--line);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.submission-status-callout.submitted .submission-status-icon,
+.submission-status-callout.approved .submission-status-icon {
+  background: #86efac;
+  color: #14532d;
+}
+
+.submission-status-callout.reopened .submission-status-icon {
+  background: #fcd34d;
+  color: #713f12;
+}
+
+.submission-status-callout > div {
+  display: grid;
+  gap: 3px;
+}
+
+.submission-status-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.submission-status-callout strong {
+  color: var(--ink);
+}
+
+.submission-status-callout p {
+  margin: 0;
+}
+
 .copy-select {
   display: grid;
   gap: 6px;

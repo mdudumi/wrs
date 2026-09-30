@@ -9,7 +9,7 @@ import { getSelectedPeriod } from "@/lib/local-store";
 import { buildStoredPayload, createEmptyDraft, draftFromPayload } from "@/lib/payload-mapping";
 import { zoneOptions, padOptions } from "@/lib/reference-data";
 import { getDepartmentEntry, listJobTypes, listReportingPeriods, listRigs, listWells, upsertDepartmentEntry } from "@/lib/reporting-data";
-import type { DepartmentEntryPayload, DraftData, DraftRow, JobTypeReferenceRecord, ModuleDefinition, ReportingPeriodRecord, RigReferenceRecord, SectionDefinition, WellReferenceRecord } from "@/lib/types";
+import type { DepartmentEntryPayload, DepartmentEntryRecord, DraftData, DraftRow, JobTypeReferenceRecord, ModuleDefinition, ReportingPeriodRecord, RigReferenceRecord, SectionDefinition, WellReferenceRecord } from "@/lib/types";
 
 const staticOptionSets: Record<string, string[]> = {
   zones: zoneOptions,
@@ -25,6 +25,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   const [loading, setLoading] = useState(true);
   const [importedPayload, setImportedPayload] = useState<DepartmentEntryPayload | null>(null);
   const [hasEntry, setHasEntry] = useState(false);
+  const [entryStatus, setEntryStatus] = useState<DepartmentEntryRecord["status"] | null>(null);
   const [periods, setPeriods] = useState<ReportingPeriodRecord[]>([]);
   const [sourcePeriodId, setSourcePeriodId] = useState("");
   const [copiedDraft, setCopiedDraft] = useState<DraftData | null>(null);
@@ -196,6 +197,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       setImportedPayload(hydrated.importedPayload);
       setExpandedSections(defaultExpandedSections(module, normalizedDraft));
       setHasEntry(Boolean(entry) && !fromLegacyReservoir);
+      setEntryStatus(fromLegacyReservoir ? null : entry?.status ?? null);
       setStatus(
         entry
           ? fromLegacyReservoir
@@ -213,6 +215,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       setImportedPayload(null);
       setExpandedSections(defaultExpandedSections(module, emptyDraft));
       setHasEntry(false);
+      setEntryStatus(null);
       setStatus("Unable to load entry");
       setLoading(false);
     });
@@ -264,6 +267,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     try {
       await upsertDepartmentEntry(periodId, module.id, buildStoredPayload(module, draft, importedPayload), nextStatus);
       setHasEntry(true);
+      setEntryStatus(nextStatus);
       setStatus(statusText);
       if (nextStatus === "submitted") {
         setShowSubmissionSplash(true);
@@ -288,6 +292,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
         setImportedPayload(hydrated.importedPayload);
         setExpandedSections(defaultExpandedSections(module, normalizedDraft));
         setHasEntry(true);
+        setEntryStatus(existingEntry.status);
         setStatus("Current week entry loaded for editing");
         return;
       }
@@ -301,6 +306,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
           setImportedPayload(hydrated.importedPayload);
           setExpandedSections(defaultExpandedSections(module, normalizedDraft));
           setHasEntry(false);
+          setEntryStatus(null);
           setStatus("Loaded existing reservoir data into EOR. Save draft or submit to create the dedicated EOR entry.");
           return;
         }
@@ -316,9 +322,11 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     setDraft(normalizedDraft);
     setImportedPayload(null);
     setExpandedSections(defaultExpandedSections(module, normalizedDraft));
+    setEntryStatus(null);
     try {
       await upsertDepartmentEntry(periodId, module.id, buildStoredPayload(module, carryForward.draft, null), "draft");
       setHasEntry(true);
+      setEntryStatus("draft");
       setStatus(carryForward.fromPeriodLabel ? `New weekly entry created · Last Week copied from ${carryForward.fromPeriodLabel}` : "New weekly entry created");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to create a new entry");
@@ -356,6 +364,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     setImportedPayload(copiedPayload);
     setExpandedSections(defaultExpandedSections(module, nextDraft));
     setHasEntry(false);
+    setEntryStatus(null);
     setStatus("Pasted into the current week. Save draft to keep it.");
   }
 
@@ -373,6 +382,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   }
 
   const copyOptions = periods.filter((item) => item.id !== periodId);
+  const submissionCallout = getSubmissionCallout(entryStatus);
 
   return (
     <div className={`grid${showSubmissionSplash ? " submission-complete" : ""}`}>
@@ -400,6 +410,14 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
           <button className="button" onClick={createNewEntry}><FilePlus2 size={16} /> {hasEntry ? "Edit current week" : "New entry"}</button>
           <button className="button" onClick={() => save("draft", "Draft saved to Supabase")}><Save size={16} /> Save draft</button>
           <button className="button primary" onClick={() => save("submitted", "Submitted for admin review")}><Send size={16} /> Submit</button>
+        </div>
+      </div>
+      <div className={`submission-status-callout ${entryStatus ?? "not-started"}`} role="status" aria-live="polite">
+        <span className="submission-status-icon" aria-hidden="true">{submissionCallout.icon}</span>
+        <div>
+          <span className="submission-status-label">Submission status</span>
+          <strong>{submissionCallout.title}</strong>
+          <p>{submissionCallout.description}</p>
         </div>
       </div>
       <div className="card copy-toolbar">
@@ -461,6 +479,22 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       {importedPayload && <ImportedSourcePanel payload={importedPayload} />}
     </div>
   );
+}
+
+function getSubmissionCallout(status: DepartmentEntryRecord["status"] | null) {
+  if (status === "submitted") {
+    return { icon: "✓", title: "Submitted for review", description: "Your entry has been received and is waiting for admin review." };
+  }
+  if (status === "approved") {
+    return { icon: "✓", title: "Approved", description: "Your submitted entry has been approved." };
+  }
+  if (status === "reopened") {
+    return { icon: "!", title: "Reopened for updates", description: "Please make any requested changes and submit the entry again." };
+  }
+  if (status === "draft") {
+    return { icon: "•", title: "Draft saved", description: "Your work is saved, but it has not been submitted for review yet." };
+  }
+  return { icon: "•", title: "Not submitted", description: "Complete the entry, then select Submit to send it for review." };
 }
 
 function EditableTable({ section, rows, optionSets, onChange, onDelete }: { section: SectionDefinition; rows: Row[]; optionSets: Record<string, string[]>; onChange: (rowIndex: number, fieldId: string, value: string) => void; onDelete: (rowIndex: number) => void }) {
