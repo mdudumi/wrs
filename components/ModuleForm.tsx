@@ -33,6 +33,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   const [wells, setWells] = useState<WellReferenceRecord[]>([]);
   const [rigs, setRigs] = useState<RigReferenceRecord[]>([]);
   const [jobTypes, setJobTypes] = useState<JobTypeReferenceRecord[]>([]);
+  const [showSubmissionSplash, setShowSubmissionSplash] = useState(false);
 
   const wellNames = useMemo(() => {
     return mergeOptionValues(
@@ -264,6 +265,9 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       await upsertDepartmentEntry(periodId, module.id, buildStoredPayload(module, draft, importedPayload), nextStatus);
       setHasEntry(true);
       setStatus(statusText);
+      if (nextStatus === "submitted") {
+        setShowSubmissionSplash(true);
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to save entry");
     }
@@ -371,7 +375,21 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   const copyOptions = periods.filter((item) => item.id !== periodId);
 
   return (
-    <div className="grid">
+    <div className={`grid${showSubmissionSplash ? " submission-complete" : ""}`}>
+      {showSubmissionSplash && (
+        <div className="submission-splash" role="dialog" aria-modal="true" aria-labelledby="submission-splash-title">
+          <div className="submission-splash-card">
+            <span className="submission-splash-icon" aria-hidden="true">✓</span>
+            <p className="submission-splash-eyebrow">Submission complete</p>
+            <h2 id="submission-splash-title">Your information has been submitted.</h2>
+            <p>Your entry is now in the admin review queue. You can return to your dashboard or continue editing and resubmit it.</p>
+            <div className="submission-splash-actions">
+              <a className="button primary" href="/dashboard">Return to dashboard</a>
+              <button className="button" type="button" onClick={() => setShowSubmissionSplash(false)}>Continue editing</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="card metric">
         <div>
           <h2>{module.name}</h2>
