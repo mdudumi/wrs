@@ -695,17 +695,6 @@ td textarea {
   color: #166534;
 }
 
-.submission-splash-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.submission-splash-actions .button.primary {
-  background: #15803d;
-}
-
 .submission-status-callout {
   display: flex;
   align-items: flex-start;
@@ -723,6 +712,11 @@ td textarea {
 }
 
 .submission-status-callout.reopened {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(146, 64, 14, 0.2);
+}
+
+.submission-status-callout.editing {
   border-color: rgba(251, 191, 36, 0.5);
   background: rgba(146, 64, 14, 0.2);
 }
@@ -746,6 +740,11 @@ td textarea {
 }
 
 .submission-status-callout.reopened .submission-status-icon {
+  background: #fcd34d;
+  color: #713f12;
+}
+
+.submission-status-callout.editing .submission-status-icon {
   background: #fcd34d;
   color: #713f12;
 }

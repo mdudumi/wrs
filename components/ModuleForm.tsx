@@ -26,6 +26,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   const [importedPayload, setImportedPayload] = useState<DepartmentEntryPayload | null>(null);
   const [hasEntry, setHasEntry] = useState(false);
   const [entryStatus, setEntryStatus] = useState<DepartmentEntryRecord["status"] | null>(null);
+  const [isEditingSubmittedEntry, setIsEditingSubmittedEntry] = useState(false);
   const [periods, setPeriods] = useState<ReportingPeriodRecord[]>([]);
   const [sourcePeriodId, setSourcePeriodId] = useState("");
   const [copiedDraft, setCopiedDraft] = useState<DraftData | null>(null);
@@ -198,6 +199,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       setExpandedSections(defaultExpandedSections(module, normalizedDraft));
       setHasEntry(Boolean(entry) && !fromLegacyReservoir);
       setEntryStatus(fromLegacyReservoir ? null : entry?.status ?? null);
+      setIsEditingSubmittedEntry(false);
       setStatus(
         entry
           ? fromLegacyReservoir
@@ -216,6 +218,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       setExpandedSections(defaultExpandedSections(module, emptyDraft));
       setHasEntry(false);
       setEntryStatus(null);
+      setIsEditingSubmittedEntry(false);
       setStatus("Unable to load entry");
       setLoading(false);
     });
@@ -224,7 +227,24 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     };
   }, [module, periodId, periods]);
 
+  useEffect(() => {
+    if (!showSubmissionSplash) return;
+
+    const timer = window.setTimeout(() => {
+      setShowSubmissionSplash(false);
+      setIsEditingSubmittedEntry(true);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [showSubmissionSplash]);
+
+  function markSubmittedEntryAsEditing() {
+    if (entryStatus === "submitted" || entryStatus === "approved") {
+      setIsEditingSubmittedEntry(true);
+    }
+  }
+
   function updateCell(section: SectionDefinition, rowIndex: number, fieldId: string, value: string) {
+    markSubmittedEntryAsEditing();
     setDraft((current) => {
       const rows = [...(current[section.id] ?? [])];
       const nextRow = { ...rows[rowIndex], [fieldId]: value };
@@ -245,6 +265,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   }
 
   function addRow(section: SectionDefinition) {
+    markSubmittedEntryAsEditing();
     setExpandedSections((current) => ({ ...current, [section.id]: true }));
     setDraft((current) => ({
       ...current,
@@ -253,6 +274,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   }
 
   function deleteRow(section: SectionDefinition, rowIndex: number) {
+    markSubmittedEntryAsEditing();
     setDraft((current) => {
       const rows = [...(current[section.id] ?? [])].filter((_, index) => index !== rowIndex);
       return { ...current, [section.id]: normalizeSectionRows(section, rows.length ? rows : [emptyRow(section)]) };
@@ -268,6 +290,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
       await upsertDepartmentEntry(periodId, module.id, buildStoredPayload(module, draft, importedPayload), nextStatus);
       setHasEntry(true);
       setEntryStatus(nextStatus);
+      setIsEditingSubmittedEntry(false);
       setStatus(statusText);
       if (nextStatus === "submitted") {
         setShowSubmissionSplash(true);
@@ -293,6 +316,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
         setExpandedSections(defaultExpandedSections(module, normalizedDraft));
         setHasEntry(true);
         setEntryStatus(existingEntry.status);
+        setIsEditingSubmittedEntry(existingEntry.status === "submitted" || existingEntry.status === "approved");
         setStatus("Current week entry loaded for editing");
         return;
       }
@@ -307,6 +331,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
           setExpandedSections(defaultExpandedSections(module, normalizedDraft));
           setHasEntry(false);
           setEntryStatus(null);
+          setIsEditingSubmittedEntry(false);
           setStatus("Loaded existing reservoir data into EOR. Save draft or submit to create the dedicated EOR entry.");
           return;
         }
@@ -323,10 +348,12 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     setImportedPayload(null);
     setExpandedSections(defaultExpandedSections(module, normalizedDraft));
     setEntryStatus(null);
+    setIsEditingSubmittedEntry(false);
     try {
       await upsertDepartmentEntry(periodId, module.id, buildStoredPayload(module, carryForward.draft, null), "draft");
       setHasEntry(true);
       setEntryStatus("draft");
+      setIsEditingSubmittedEntry(false);
       setStatus(carryForward.fromPeriodLabel ? `New weekly entry created · Last Week copied from ${carryForward.fromPeriodLabel}` : "New weekly entry created");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to create a new entry");
@@ -365,6 +392,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
     setExpandedSections(defaultExpandedSections(module, nextDraft));
     setHasEntry(false);
     setEntryStatus(null);
+    setIsEditingSubmittedEntry(false);
     setStatus("Pasted into the current week. Save draft to keep it.");
   }
 
@@ -382,7 +410,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   }
 
   const copyOptions = periods.filter((item) => item.id !== periodId);
-  const submissionCallout = getSubmissionCallout(entryStatus);
+  const submissionCallout = getSubmissionCallout(entryStatus, isEditingSubmittedEntry);
 
   return (
     <div className={`grid${showSubmissionSplash ? " submission-complete" : ""}`}>
@@ -392,11 +420,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
             <span className="submission-splash-icon" aria-hidden="true">✓</span>
             <p className="submission-splash-eyebrow">Submission complete</p>
             <h2 id="submission-splash-title">Your information has been submitted.</h2>
-            <p>Your entry is now in the admin review queue. You can return to your dashboard or continue editing and resubmit it.</p>
-            <div className="submission-splash-actions">
-              <a className="button primary" href="/dashboard">Return to dashboard</a>
-              <button className="button" type="button" onClick={() => setShowSubmissionSplash(false)}>Continue editing</button>
-            </div>
+            <p>Your entry is now in the admin review queue. Returning to your entry automatically.</p>
           </div>
         </div>
       )}
@@ -412,7 +436,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
           <button className="button primary" onClick={() => save("submitted", "Submitted for admin review")}><Send size={16} /> Submit</button>
         </div>
       </div>
-      <div className={`submission-status-callout ${entryStatus ?? "not-started"}`} role="status" aria-live="polite">
+      <div className={`submission-status-callout ${isEditingSubmittedEntry ? "editing" : entryStatus ?? "not-started"}`} role="status" aria-live="polite">
         <span className="submission-status-icon" aria-hidden="true">{submissionCallout.icon}</span>
         <div>
           <span className="submission-status-label">Submission status</span>
@@ -481,7 +505,10 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   );
 }
 
-function getSubmissionCallout(status: DepartmentEntryRecord["status"] | null) {
+function getSubmissionCallout(status: DepartmentEntryRecord["status"] | null, isEditingSubmittedEntry: boolean) {
+  if (isEditingSubmittedEntry) {
+    return { icon: "!", title: "Editing a submitted entry", description: "Your earlier submission is on file. Submit again when your updates are ready for review." };
+  }
   if (status === "submitted") {
     return { icon: "✓", title: "Submitted for review", description: "Your entry has been received and is waiting for admin review." };
   }
