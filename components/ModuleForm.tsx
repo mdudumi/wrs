@@ -230,10 +230,7 @@ export function ModuleForm({ module }: { module: ModuleDefinition }) {
   useEffect(() => {
     if (!showSubmissionSplash) return;
 
-    const timer = window.setTimeout(() => {
-      setShowSubmissionSplash(false);
-      setIsEditingSubmittedEntry(true);
-    }, 5000);
+    const timer = window.setTimeout(() => setShowSubmissionSplash(false), 3000);
     return () => window.clearTimeout(timer);
   }, [showSubmissionSplash]);
 
